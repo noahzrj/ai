@@ -3,16 +3,215 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Deploy Pages</title>
+  <meta name="theme-color" content="#11131b">
+  <title>Game Night! · Pick a game</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Trebuchet MS", system-ui, sans-serif;
+      background: #11131b;
+      color: #f5f4ed;
+      font-synthesis: none;
+      --muted: #a7a9b5;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        radial-gradient(ellipse at 50% 0%, #31274b 0, transparent 52%),
+        #11131b;
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: radial-gradient(#ffffff26 1px, transparent 1px);
+      background-size: 30px 30px;
+      content: "";
+      opacity: .35;
+    }
+
+    main {
+      position: relative;
+      width: min(100% - 40px, 1040px);
+      margin: 0 auto;
+      padding: clamp(52px, 10vw, 104px) 0 42px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #d3ff69;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(3rem, 9vw, 6.5rem);
+      line-height: .95;
+      letter-spacing: -.075em;
+    }
+
+    h1 span {
+      color: #d3ff69;
+      text-shadow: 0 0 36px #d3ff6940;
+    }
+
+    .intro {
+      max-width: 570px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2.5vw, 1.15rem);
+      line-height: 1.7;
+    }
+
+    .games {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin: 42px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .game {
+      --accent: #d3ff69;
+      min-height: 254px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 22px;
+      overflow: hidden;
+      border: 1px solid #ffffff1a;
+      border-radius: 20px;
+      background:
+        radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
+        #1b1d28;
+      color: inherit;
+      text-decoration: none;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .game:hover {
+      transform: translateY(-6px) rotate(-.5deg);
+      border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+      box-shadow: 0 18px 50px #0005, 0 0 32px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+
+    .game:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    .potato { --accent: #ffcf72; }
+    .fighter { --accent: #ff8191; }
+
+    .icon {
+      display: grid;
+      width: 58px;
+      height: 58px;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      border-radius: 17px;
+      background: color-mix(in srgb, var(--accent) 12%, #1b1d28);
+      font-size: 1.8rem;
+    }
+
+    .game h2 {
+      margin: 25px 0 7px;
+      font-size: 1.4rem;
+      letter-spacing: -.03em;
+    }
+
+    .game p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .92rem;
+      line-height: 1.55;
+    }
+
+    .play {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 24px;
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .play span { transition: transform 180ms ease; }
+    .game:hover .play span { transform: translateX(5px); }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 38px;
+      color: #777a89;
+      font-size: .75rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 760px) {
+      .games { grid-template-columns: 1fr; }
+      .game { min-height: 210px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <main>
-    <h1>Deploy Pages</h1>
-    <ul>
-      <li><a href="deploy/hiddenarcade.html">Hidden Arcade</a></li>
-      <li><a href="deploy/potato.html">Potato Patch</a></li>
-      <li><a href="deploy/stickman_fight.html">Stickman Fight</a></li>
+    <div class="eyebrow"><span aria-hidden="true">✦</span> The tiny game corner</div>
+    <h1>Game <span>night!</span></h1>
+    <p class="intro">Pick your kind of fun. Chase a high score, grow a very important potato, or jump into the arena. Your next favorite is one click away.</p>
+    <ul class="games">
+      <li>
+        <a class="game arcade" href="deploy/hiddenarcade.html">
+          <span class="icon" aria-hidden="true">🕹️</span>
+          <h2>Hidden Arcade</h2>
+          <p>Find your next quick-play obsession and go for a new high score.</p>
+          <span class="play">Play now <span aria-hidden="true">→</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="game potato" href="deploy/potato.html">
+          <span class="icon" aria-hidden="true">🥔</span>
+          <h2>Potato Patch</h2>
+          <p>Start with one spud, grow your patch, and let the harvest roll in.</p>
+          <span class="play">Grow your patch <span aria-hidden="true">→</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="game fighter" href="deploy/stickman_fight.html">
+          <span class="icon" aria-hidden="true">⚔️</span>
+          <h2>Stick &amp; Survive</h2>
+          <p>Gear up, hold your ground, and see how many waves you can survive.</p>
+          <span class="play">Enter the arena <span aria-hidden="true">→</span></span>
+        </a>
+      </li>
     </ul>
+    <footer><span>Choose wisely. Or play them all.</span><span>★ Press start ★</span></footer>
   </main>
 </body>
 </html>
