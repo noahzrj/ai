@@ -28,7 +28,11 @@
         #111721;
     }
 
-    button, input { font: inherit; }
+    button, input, select { font: inherit; }
+    select { max-width: 100%; padding: 8px; background: #202c35; color: #edf2ec; border: 1px solid var(--line); border-radius: 8px; }
+    .categories { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .categories .action { min-height: 32px; padding: 6px 8px; font-size: .7rem; }
+    .categories [aria-pressed="true"] { background: #244238; border-color: var(--mint); }
     button { color: inherit; }
 
     .app {
@@ -201,6 +205,8 @@
       line-height: 1.15;
     }
 
+    .tool[hidden] { display: none; }
+
     .tool[aria-pressed="true"] {
       border-color: var(--mint);
       background: #244238;
@@ -320,18 +326,28 @@
 
       <aside aria-label="Sandbox tools">
         <section class="section">
-          <h2 class="section-heading">Pick an element <small>27 to discover</small></h2>
+          <h2 class="section-heading">Pick an element <small id="element-count"></small></h2>
+          <div class="categories" id="categories" aria-label="Element categories"></div>
           <div class="palette" id="palette" aria-label="Element palette"></div>
         </section>
         <section class="section">
+          <h2 class="section-heading">Tools &amp; brush</h2>
+          <div class="palette" id="edit-tools" aria-label="Editing tools"></div>
+          <p class="hint" id="tool-hint">Paint your selected element. Heat and cool change temperatures; drag moves a patch; mix stirs it.</p>
           <h2 class="section-heading">Brush size</h2>
           <label class="brush-row" for="brush">
             <span class="brush-control">
-              <input id="brush" type="range" min="1" max="9" value="3">
+              <input id="brush" type="range" min="1" max="21" value="3">
             </span>
             <output id="brush-size" for="brush">3</output>
           </label>
           <p class="hint">Click or drag on the world to paint. Bigger brushes make bigger splashes.</p>
+        </section>
+        <section class="section">
+          <h2 class="section-heading">World size</h2>
+          <label for="world-size">Sandbox dimensions</label>
+          <select id="world-size"><option value="72,48">Small · 72 × 48</option><option value="104,60" selected>Medium · 104 × 60</option><option value="160,96">Large · 160 × 96</option><option value="208,120">Huge · 208 × 120</option></select>
+          <p class="hint">Resizing preserves the top-left of your world. Cells outside smaller bounds are cropped. Saves include the world size.</p>
         </section>
         <section class="section">
           <h2 class="section-heading">Little experiments</h2>
@@ -349,9 +365,9 @@
     (() => {
       "use strict";
 
-      const WIDTH = 104;
-      const HEIGHT = 60;
-      const SIZE = WIDTH * HEIGHT;
+      let WIDTH = 104;
+      let HEIGHT = 60;
+      let SIZE = WIDTH * HEIGHT;
       const SAVE_KEY = "little-world-lab-save-v1";
       const kinds = [
         { name: "Sand", icon: "🟨", color: "#e8c879", behavior: "powder" },
@@ -383,12 +399,49 @@
         { name: "Erase", icon: "🧽", color: "#d3dadd", behavior: "erase" }
       ];
 
+      const groups = {
+        Solids: "Sand,Dirt,Stone,Wood,Ice,Salt,Snow,Metal,Glass,Brick,Concrete,Gravel,Clay,Coal,Gold,Copper,Rust,Ash",
+        Liquids: "Water,Oil,Lava,Acid,Mud,Milk,Honey,Juice,Saltwater,Alcohol,Mercury",
+        Gases: "Smoke,Cloud,Steam,Oxygen,Hydrogen,Poison gas",
+        Living: "Seed,Sapling,Grass,Flower,Vine,Fish,Bird,Rabbit,Ant,Mushroom,Bee,Butterfly,Worm,Frog,Algae,Moss,Bamboo,Coral,Fly,Beetle",
+        Food: "Apple,Bread,Cheese,Meat,Cooked meat,Sugar,Flour,Dough,Popcorn,Corn",
+        Energy: "Fire,Electricity,Spark,Plasma",
+        Weapons: "Bomb,Dynamite,Gunpowder,Firework,Laser"
+      };
+      const additions = [
+        ["Glass","🔍","#b3dedc"], ["Brick","🧱","#ad6050"], ["Concrete","🏗️","#9b9d91"],
+        ["Gravel","⛰️","#a39280","powder"], ["Clay","🏺","#b17b62","powder"], ["Coal","⚫","#384047","powder",true],
+        ["Gold","🟡","#ffd75e","powder"], ["Copper","🟠","#c67d51"], ["Rust","🍂","#b65b37","powder"], ["Ash","🌑","#7c7a80","powder"],
+        ["Mud","🟤","#66513d","liquid"], ["Milk","🥛","#f1ecda","liquid"], ["Honey","🍯","#e0a52d","liquid"],
+        ["Juice","🧃","#f09d47","liquid"], ["Saltwater","🌊","#648fbd","liquid"], ["Alcohol","🍶","#b0c8db","liquid",true], ["Mercury","⚗️","#bec4d0","liquid"],
+        ["Oxygen","🫧","#a9d8ee","float"], ["Hydrogen","🎈","#dfb9ed","float",true], ["Poison gas","☠️","#8aab53","float"],
+        ["Bee","🐝","#f5cb45","flier"], ["Butterfly","🦋","#b797f5","flier"], ["Worm","🪱","#d8939c","crawler"],
+        ["Frog","🐸","#89b956","crawler"], ["Algae","🌊","#449e75","aquatic"], ["Moss","🌿","#83a854","grow",true],
+        ["Bamboo","🎋","#a4c976","grow",true], ["Coral","🪸","#f68e9a","aquatic"], ["Fly","🪰","#8a9982","flier"], ["Beetle","🪲","#407e65","crawler"],
+        ["Apple","🍎","#e36961","food",true], ["Bread","🍞","#d6a66c","food",true], ["Cheese","🧀","#f3ce6e","food"],
+        ["Meat","🥩","#d9858a","food"], ["Cooked meat","🍗","#a96742","food"], ["Sugar","🍬","#fff0e7","powder",true],
+        ["Flour","🌾","#e3d7b7","powder",true], ["Dough","🥟","#d9bc8a","food"], ["Popcorn","🍿","#fff2b7","powder",true], ["Corn","🌽","#f4cc43","powder",true],
+        ["Electricity","⚡","#f9f480","energy"], ["Spark","✨","#ffe2aa","energy"], ["Plasma","🟣","#ec80ff","energy"],
+        ["Bomb","💣","#434b5e","explosive"], ["Dynamite","🧨","#ee665a","explosive"], ["Gunpowder","▪️","#5c5c68","powder",true],
+        ["Firework","🎆","#db8cfa","rocket"], ["Laser","🔴","#ff426a","laser"]
+      ];
+      additions.forEach(([name, icon, color, behavior, flammable]) => kinds.push({name, icon, color, behavior, flammable}));
+      kinds.find(k => k.name === "Vine").behavior = "vine";
+      kinds.find(k => k.name === "Salt").behavior = "powder";
+      for (const [category, names] of Object.entries(groups)) for (const name of names.split(",")) {
+        const entry = kinds.find(k => k.name === name);
+        if (entry) entry.category = category;
+      }
+
       const ID = Object.fromEntries(kinds.map((kind, index) => [kind.name.toLowerCase(), index + 1]));
       const canvas = document.getElementById("world");
       const ctx = canvas.getContext("2d", { alpha: false });
-      const cells = new Uint8Array(SIZE);
-      const ages = new Uint16Array(SIZE);
-      const acted = new Uint8Array(SIZE);
+      let cells = new Uint8Array(SIZE);
+      let ages = new Uint16Array(SIZE);
+      let acted = new Uint8Array(SIZE);
+      let temperatures = new Float32Array(SIZE).fill(20);
+      let mode = "paint";
+      let dragPoint = null;
       const palette = document.getElementById("palette");
       const status = document.getElementById("status");
       const pauseButton = document.getElementById("pause");
@@ -415,6 +468,7 @@
         cells[index] = value;
         ages[index] = 0;
         acted[index] = 1;
+        temperatures[index] = value === ID.lava ? 1200 : value === ID.fire ? 600 : value === ID.steam ? 110 : value === ID.ice || value === ID.snow ? -15 : 20;
       }
 
       function makeTool(kindData, index) {
@@ -429,16 +483,59 @@
         return button;
       }
 
-      kinds.forEach((kindData, index) => palette.append(makeTool(kindData, index)));
+      kinds.forEach((kindData, index) => {
+        const button = makeTool(kindData, index);
+        button.dataset.category = kindData.category || "Tools";
+        palette.append(button);
+      });
+      document.getElementById("element-count").textContent = `${kinds.length - 1} to discover`;
+      for (const category of ["All", ...Object.keys(groups)]) {
+        const button = document.createElement("button");
+        button.className = "action"; button.textContent = category;
+        button.setAttribute("aria-pressed", String(category === "Solids"));
+        button.onclick = () => {
+          [...document.getElementById("categories").children].forEach(b => b.setAttribute("aria-pressed", String(b === button)));
+          [...palette.children].forEach(b => b.hidden = category !== "All" && b.dataset.category !== category);
+        };
+        document.getElementById("categories").append(button);
+      }
+      [...palette.children].forEach(b => b.hidden = b.dataset.category !== "Solids");
+      for (const [value, label] of [["paint","🖌 Paint"],["erase","🧽 Erase"],["heat","☀ Heat"],["cool","❄ Cool"],["mix","🌀 Mix"],["drag","✋ Drag"]]) {
+        const button = document.createElement("button"); button.className = "tool"; button.textContent = label;
+        button.dataset.mode = value;
+        button.onclick = () => { mode = value; dragPoint = null; updateMode(); };
+        document.getElementById("edit-tools").append(button);
+      }
+      function updateMode() {
+        [...document.getElementById("edit-tools").children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+        selectedLabel.textContent = mode === "paint" ? `${kind(selected).name} selected` : `${mode[0].toUpperCase() + mode.slice(1)} tool`;
+      }
       const tools = [...palette.querySelectorAll(".tool")];
 
       function selectTool(id) {
         selected = id;
+        mode = id === ID.erase ? "erase" : "paint";
+        updateMode();
         tools.forEach((button, index) => button.setAttribute("aria-pressed", index + 1 === id ? "true" : "false"));
         selectedLabel.innerHTML = `<strong>${id === 0 ? "Erase" : kind(id).name}</strong> selected`;
       }
 
       function paint(x, y) {
+        if (mode === "drag") {
+          if (dragPoint) {
+            const dx = x - dragPoint.x, dy = y - dragPoint.y;
+            const radius = Math.floor(Number(brush.value) / 2);
+            const patch = [];
+            for (let oy = -radius; oy <= radius; oy++) for (let ox = -radius; ox <= radius; ox++) {
+              const sx = dragPoint.x + ox, sy = dragPoint.y + oy;
+              if (!inside(sx, sy) || !inside(sx + dx, sy + dy)) continue;
+              const i = at(sx, sy); patch.push([sx, sy, cells[i], ages[i], temperatures[i]]);
+            }
+            patch.forEach(([sx,sy]) => put(sx,sy,0));
+            patch.forEach(([sx,sy,id,age,temp]) => { put(sx+dx,sy+dy,id); const i=at(sx+dx,sy+dy); ages[i]=age; temperatures[i]=temp; });
+          }
+          dragPoint = {x,y}; return;
+        }
         const radius = Math.floor(Number(brush.value) / 2);
         const radiusSquared = (radius + 0.35) ** 2;
         for (let dy = -radius; dy <= radius; dy++) {
@@ -446,7 +543,14 @@
             if (dx * dx + dy * dy > radiusSquared) continue;
             const px = x + dx;
             const py = y + dy;
-            if (inside(px, py)) put(px, py, selected === ID.erase ? 0 : selected);
+            if (!inside(px, py)) continue;
+            const i = at(px, py);
+            if (mode === "heat" || mode === "cool") { temperatures[i] += mode === "heat" ? 100 : -100; thermal(px,py); }
+            else if (mode === "mix") {
+              const nx = x + Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+              const ny = y + Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+              if (inside(nx, ny)) swap(i, at(nx, ny));
+            } else put(px, py, mode === "erase" ? 0 : selected);
           }
         }
       }
@@ -477,12 +581,13 @@
       canvas.addEventListener("pointermove", event => {
         if (drawing) paintPointer(event);
       });
-      const stopDrawing = () => { drawing = false; lastPainted = -1; };
+      const stopDrawing = () => { drawing = false; lastPainted = -1; dragPoint = null; };
       canvas.addEventListener("pointerup", stopDrawing);
       canvas.addEventListener("pointercancel", stopDrawing);
       canvas.addEventListener("lostpointercapture", stopDrawing);
 
       function swap(a, b) {
+        const temp = temperatures[a]; temperatures[a] = temperatures[b]; temperatures[b] = temp;
         const value = cells[a];
         cells[a] = cells[b];
         cells[b] = value;
@@ -516,6 +621,45 @@
 
       function randomSide() { return Math.random() < 0.5 ? -1 : 1; }
 
+      function thermal(x,y) {
+        const i=at(x,y), id=cells[i], t=temperatures[i];
+        if (!id) return;
+        let next;
+        if ((id===ID.ice || id===ID.snow) && t>0) next=ID.water;
+        else if ([ID.water,ID.saltwater].includes(id)) { if(t<0) next=ID.ice; else if(t>100) next=ID.steam; }
+        else if(id===ID.steam && t<90) next=ID.water;
+        else if(id===ID.sand && t>900) next=ID.glass;
+        else if(id===ID.stone && t>1000) next=ID.lava;
+        else if(id===ID.lava && t<700) next=ID.stone;
+        else if(id===ID.meat && t>90) next=ID["cooked meat"];
+        else if(id===ID.dough && t>120) next=ID.bread;
+        else if(id===ID.corn && t>150) next=ID.popcorn;
+        else if(kind(id).flammable && t>250) next=ID.fire;
+        if(next) { put(x,y,next); temperatures[i]=t; }
+      }
+      function explode(x,y,radius=7) {
+        for(let dy=-radius;dy<=radius;dy++) for(let dx=-radius;dx<=radius;dx++) {
+          if(dx*dx+dy*dy>radius*radius || !inside(x+dx,y+dy)) continue;
+          const i=at(x+dx,y+dy), id=cells[i];
+          if(id===ID.metal || id===ID.concrete) continue;
+          if([ID.bomb,ID.dynamite,ID.gunpowder].includes(id) && (dx || dy)) { temperatures[i]=600; ages[i]=100; continue; }
+          put(x+dx,y+dy,Math.random()<.35?ID.fire:Math.random()<.2?ID.smoke:0);
+        }
+      }
+      function resizeWorld(w,h,preserve=true) {
+        const old=cells, oldAges=ages, oldTemps=temperatures, oldW=WIDTH, oldH=HEIGHT;
+        WIDTH=w; HEIGHT=h; SIZE=w*h;
+        cells=new Uint8Array(SIZE); ages=new Uint16Array(SIZE); acted=new Uint8Array(SIZE); temperatures=new Float32Array(SIZE).fill(20);
+        if(preserve) for(let y=0;y<Math.min(h,oldH);y++) for(let x=0;x<Math.min(w,oldW);x++) {
+          const i=at(x,y), j=y*oldW+x; cells[i]=old[j]; ages[i]=oldAges[j]; temperatures[i]=oldTemps[j];
+        }
+        canvas.width=w*10; canvas.height=h*10; stopDrawing();
+        document.getElementById("world-size").value=`${w},${h}`;
+      }
+      document.getElementById("world-size").addEventListener("change", event => {
+        const [w,h]=event.target.value.split(",").map(Number); resizeWorld(w,h); draw(); tell(`World resized to ${w} × ${h}.`);
+      });
+
       function stepWorld() {
         tick++;
         acted.fill(0);
@@ -530,7 +674,72 @@
             if (id === 0) continue;
             if (ages[index] < 65535) ages[index]++;
 
-            switch (kind(id).behavior) {
+            const data=kind(id);
+            if(adjacent(x,y,ID.fire) || adjacent(x,y,ID.lava)) temperatures[index]+=35;
+            if(tick%4===0) {
+              for(const [dx,dy] of [[1,0],[0,1]]) if(inside(x+dx,y+dy) && cells[at(x+dx,y+dy)]) {
+                const j=at(x+dx,y+dy), exchange=(temperatures[index]-temperatures[j])*.1;
+                temperatures[index]-=exchange; temperatures[j]+=exchange;
+              }
+              thermal(x,y); if(cells[index]!==id) continue;
+            }
+            if(id===ID.steam) temperatures[index]-=.5;
+            if(id===ID.gunpowder && (temperatures[index]>250 || adjacent(x,y,ID.fire))) { explode(x,y,5); continue; }
+            if(id===ID.flour && adjacent(x,y,ID.water)) { put(x,y,ID.dough); continue; }
+            if(id===ID.dirt && adjacent(x,y,ID.water) && Math.random()<.003) {put(x,y,ID.mud);continue;}
+            if(data.category==="Living" && (adjacent(x,y,ID["poison gas"]) || temperatures[index]>180 || temperatures[index]<-40)) {put(x,y,ID.ash);continue;}
+            if(["crawler","flier","rabbit","ant","bird","fish"].includes(data.behavior)) {
+              for(const [dx,dy] of [[-1,0],[1,0],[0,1],[0,-1]]) if(inside(x+dx,y+dy)) {
+                const j=at(x+dx,y+dy);
+                if(cells[j] && kind(cells[j]).category==="Food" && Math.random()<.15) {
+                  put(x+dx,y+dy,0);
+                  if(Math.random()<.08) put(x+dx,y+dy,id);
+                }
+              }
+            }
+            switch (data.behavior) {
+              case "explosive":
+                if(ages[index]>45 || adjacent(x,y,ID.fire) || temperatures[index]>150) explode(x,y,id===ID.dynamite?10:7);
+                else moveTo(x,y,x,y+1);
+                break;
+              case "rocket":
+                if(ages[index]>18 || y<2) explode(x,y,6); else moveTo(x,y,x,y-1);
+                break;
+              case "laser":
+                for(let nx=x+1;nx<WIDTH;nx++) {
+                  const j=at(nx,y);
+                  if(cells[j]===ID.metal) break;
+                  if([ID.bomb,ID.dynamite,ID.gunpowder].includes(cells[j])) {explode(nx,y);break;}
+                  put(nx,y,ID.spark);
+                }
+                put(x,y,0); break;
+              case "energy":
+                if(ages[index]>4) put(x,y,0);
+                else for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(inside(x+dx,y+dy)) {
+                  const j=at(x+dx,y+dy); temperatures[j]+=120; thermal(x+dx,y+dy);
+                  if([ID.bomb,ID.dynamite,ID.gunpowder].includes(cells[j])) { ages[j]=100; temperatures[j]=600; }
+                }
+                break;
+              case "food": moveTo(x,y,x,y+1); break;
+              case "float":
+                if(id===ID.hydrogen && adjacent(x,y,ID.fire)) {explode(x,y,5);break;}
+                if(ages[index]>350) put(x,y,0);
+                else if(!moveTo(x,y,x,y-1)) moveTo(x,y,x+randomSide(),y);
+                break;
+              case "flier":
+                if(Math.random()<.35) moveTo(x,y,x+randomSide(),y+Math.floor(Math.random()*3)-1);
+                if(id===ID.bee && adjacent(x,y,ID.flower) && Math.random()<.02 && inside(x,y+1) && !cells[at(x,y+1)]) put(x,y+1,ID.honey);
+                break;
+              case "crawler":
+                if(!moveTo(x,y,x,y+1) && Math.random()<.4) {
+                  const dx=randomSide(); if(!moveTo(x,y,x+dx,y)) moveTo(x,y,x+dx,y-1);
+                } break;
+              case "grow":
+              case "aquatic":
+                if(adjacent(x,y,ID.water) && Math.random()<.008) {
+                  const nx=x+randomSide(),ny=y+(id===ID.bamboo?-1:randomSide());
+                  if(inside(nx,ny) && !cells[at(nx,ny)]) put(nx,ny,id);
+                } break;
               case "powder": {
                 if (y + 1 < HEIGHT && moveTo(x, y, x, y + 1, true)) break;
                 const side = Math.random() < 0.5 ? -1 : 1;
@@ -797,10 +1006,11 @@
       function createWorld() {
         cells.fill(0);
         ages.fill(0);
+        temperatures.fill(20);
         for (let x = 0; x < WIDTH; x++) {
-          const groundY = 49 + Math.round(Math.sin(x * 0.12) * 2 + Math.sin(x * 0.037) * 2);
+          const groundY = Math.floor(HEIGHT * .82) + Math.round(Math.sin(x * 0.12) * 2 + Math.sin(x * 0.037) * 2);
           for (let y = groundY; y < HEIGHT; y++) {
-            put(x, y, y > 56 ? ID.stone : y > groundY + 3 ? ID.dirt : ID.grass);
+            put(x, y, y > HEIGHT - 4 ? ID.stone : y > groundY + 3 ? ID.dirt : ID.grass);
           }
         }
         for (let x = 13; x < 36; x++) {
@@ -868,6 +1078,7 @@
       document.getElementById("clear").addEventListener("click", () => {
         cells.fill(0);
         ages.fill(0);
+        temperatures.fill(20);
         draw();
         tell("All cleared. Make something new!");
       });
@@ -887,7 +1098,7 @@
       });
       document.getElementById("save").addEventListener("click", () => {
         try {
-          localStorage.setItem(SAVE_KEY, JSON.stringify({ cells: Array.from(cells), ages: Array.from(ages) }));
+          localStorage.setItem(SAVE_KEY, JSON.stringify({ width: WIDTH, height: HEIGHT, temperatures: Array.from(temperatures), cells: Array.from(cells), ages: Array.from(ages) }));
           tell("World saved on this device.");
         } catch (error) {
           tell("Couldn't save this world. Check your browser storage settings.");
@@ -902,14 +1113,20 @@
             return;
           }
           const world = JSON.parse(saved);
-          if (!Array.isArray(world.cells) || world.cells.length !== SIZE ||
-              !Array.isArray(world.ages) || world.ages.length !== SIZE ||
+          const w=world.width ?? 104, h=world.height ?? 60;
+          if(![[72,48],[104,60],[160,96],[208,120]].some(([a,b])=>a===w && b===h)) throw new Error("Invalid world size");
+          if(world.temperatures && (!Array.isArray(world.temperatures) || world.temperatures.length!==w*h || world.temperatures.some(t=>!Number.isFinite(t) || Math.abs(t)>1e7))) throw new Error("Invalid temperatures");
+          if (!Array.isArray(world.cells) || world.cells.length !== w*h ||
+              !Array.isArray(world.ages) || world.ages.length !== w*h ||
               world.cells.some(value => !Number.isInteger(value) || value < 0 || value > kinds.length) ||
               world.ages.some(value => !Number.isInteger(value) || value < 0 || value > 65535)) {
             throw new Error("Saved world data is invalid.");
           }
+          resizeWorld(w,h,false);
           cells.set(world.cells);
           ages.set(world.ages);
+          if(world.temperatures) temperatures.set(world.temperatures);
+          else cells.forEach((id,i)=>{temperatures[i]=id===ID.lava?1200:id===ID.fire?600:id===ID.steam?110:id===ID.ice||id===ID.snow?-15:20;});
           draw();
           tell("Your saved world is back.");
         } catch (error) {
