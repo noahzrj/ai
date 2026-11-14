@@ -320,15 +320,19 @@
         </div>
         <div class="board-bottom">
           <span id="world-count">0 little things</span>
-          <span>Draw with mouse or touch</span>
+          <span id="disaster-state" role="status">Draw with mouse or touch</span>
         </div>
       </section>
 
       <aside aria-label="Sandbox tools">
         <section class="section">
           <h2 class="section-heading">Pick an element <small id="element-count"></small></h2>
+          <label for="element-search" class="hint">Find an element</label>
+          <input id="element-search" type="search" placeholder="Search hundreds of elements…" style="width:100%;margin:6px 0 12px;padding:9px;background:#202c35;color:inherit;border:1px solid var(--line);border-radius:8px">
           <div class="categories" id="categories" aria-label="Element categories"></div>
-          <div class="palette" id="palette" aria-label="Element palette"></div>
+          <div class="palette" id="palette" aria-label="Element palette" style="max-height:420px;overflow-y:auto"></div>
+          <p class="hint" id="element-help">Sand falls and piles up. Select an element to learn what it does.</p>
+          <p class="hint" id="search-empty" hidden>No matching elements.</p>
         </section>
         <section class="section">
           <h2 class="section-heading">Tools &amp; brush</h2>
@@ -433,10 +437,60 @@
         if (entry) entry.category = category;
       }
 
+      // Append-only catalog: existing numeric IDs remain compatible with earlier saves.
+      const collections = [
+        ["Minerals", "powder", "💎", "#b5a5ce", "Quartz,Amethyst,Ruby,Sapphire,Emerald,Diamond,Opal,Topaz,Jade,Onyx,Garnet,Turquoise,Malachite,Calcite,Gypsum,Mica,Feldspar,Pyrite,Obsidian,Basalt,Granite,Marble,Limestone,Chalk,Pumice,Slate,Shale,Silt,Red sand,Black sand,Volcanic ash,Perlite"],
+        ["Metals", "", "🔩", "#a5b8c8", "Iron,Steel,Aluminum,Silver,Platinum,Tin,Zinc,Nickel,Titanium,Lead,Bronze,Brass,Tungsten,Cobalt,Chromium,Magnesium,Bismuth,Pewter,Stainless steel,Rose gold"],
+        ["Building", "", "🧱", "#bc9b7c", "Cement,Asphalt,Tile,Ceramic,Porcelain,Plaster,Stucco,Adobe,Insulation,Fiberglass,Carbon fiber,Rubber,Plastic,Resin,Wax,Sponge,Cork,Paper,Cardboard,Fabric,Rope,Leather,Hay bale,Glass pane,Reinforced wall"],
+        ["Powders", "powder", "⏳", "#d6c49e", "Dust,Sawdust,Charcoal,Fertilizer,Compost,Peat,Potting soil,Clay dust,Crushed ice,Baking soda,Baking powder,Yeast,Cocoa powder,Coffee grounds,Tea leaves,Pepper,Cinnamon,Paprika,Turmeric,Starch,Chalk dust,Glitter,Confetti,Crushed glass"],
+        ["Liquids", "liquid", "🧴", "#83b8d5", "Brine,Vinegar,Soap,Detergent,Bleach,Ink,Paint,Dye,Shampoo,Glycerin,Syrup,Molasses,Ketchup,Mustard,Mayonnaise,Olive oil,Coconut oil,Petrol,Diesel,Kerosene,Coolant,Antifreeze,Liquid nitrogen,Liquid oxygen,Chocolate sauce,Caramel,Soy sauce,Hot sauce"],
+        ["Gases", "float", "🫧", "#b2c6dc", "Helium,Neon,Argon,Nitrogen,Carbon dioxide,Methane,Propane,Butane,Chlorine,Sulfur gas,Ozone,Water mist,Fog,Perfume,Aerosol"],
+        ["Plants", "grow", "🌿", "#77b96c", "Fern,Cactus,Succulent,Ivy,Clover,Dandelion,Rose,Tulip,Sunflower,Lavender,Daisy,Lily,Orchid,Poppy,Marigold,Reed,Cattail,Wheat,Rice plant,Oat plant,Tomato plant,Potato plant,Carrot plant,Pumpkin vine,Strawberry plant,Blueberry bush,Raspberry bush,Grape vine,Apple tree,Orange tree,Palm tree,Pine tree,Oak tree,Willow tree,Birch tree,Maple tree,Mangrove,Seagrass,Kelp,Water lily,Duckweed"],
+        ["Animals", "crawler", "🐾", "#d3b18c", "Human,Cat,Dog,Mouse,Rat,Hamster,Guinea pig,Squirrel,Hedgehog,Fox,Wolf,Deer,Goat,Sheep,Cow,Pig,Horse,Turtle,Lizard,Gecko,Snake,Salamander,Toad,Snail,Slug,Crab,Scorpion,Spider,Centipede,Millipede"],
+        ["Insects", "flier", "🦋", "#b7ac6d", "Dragonfly,Firefly,Ladybug,Moth,Mosquito,Wasp,Hornet,Locust,Grasshopper,Cricket,Cicada,Termite,Fruit fly,Gnat,Lacewing"],
+        ["Birds", "flier", "🐦", "#b7c7e5", "Sparrow,Robin,Blue jay,Cardinal,Crow,Raven,Owl,Eagle,Hawk,Parrot,Pigeon,Dove,Seagull,Duck,Goose,Hummingbird,Woodpecker,Finch"],
+        ["Aquatic", "fish", "🐠", "#6ec9c5", "Goldfish,Clownfish,Salmon,Trout,Tuna,Shark,Ray,Eel,Seahorse,Jellyfish,Octopus,Squid,Shrimp,Lobster,Starfish,Sea urchin,Clam,Mussel,Sea cucumber,Tadpole"],
+        ["Food", "food", "🍎", "#e4ae7b", "Banana,Orange,Lemon,Lime,Pear,Peach,Plum,Cherry,Strawberry,Blueberry,Raspberry,Blackberry,Watermelon,Melon,Pineapple,Mango,Kiwi,Grape,Coconut,Avocado,Tomato,Potato,Carrot,Onion,Garlic,Broccoli,Cauliflower,Cabbage,Lettuce,Spinach,Peas,Beans,Lentils,Rice,Oats,Pasta,Noodles,Egg,Butter,Yogurt,Ice cream,Chocolate,Cookie,Cake,Pie,Pizza,Sandwich,Pancake,Waffle,Donut,Marshmallow,Candy,Tofu,Nuts,Peanut,Almond,Walnut,Sunflower seed,Pumpkin seed,Raw fish,Cooked fish,Steak,Bacon,Sausage"],
+        ["Energy", "energy", "✨", "#e6b8f6", "Lightning arc,Ember,Blue flame,Green flame,Magic spark,Static charge,Solar flare"],
+        ["Weapons", "explosive", "💥", "#d5827c", "TNT,Firecracker,Land mine,Barrel bomb,Cluster bomb,Incendiary bomb"],
+        ["Natural disasters", "disaster", "🌪️", "#e7a27b", "Meteor,Meteor shower,Earthquake,Tsunami,Tornado,Hurricane,Volcano,Flood,Wildfire,Lightning storm,Blizzard,Hailstorm,Avalanche,Landslide,Drought,Sinkhole"]
+      ];
+      const catalogColors = ["#c9b5e2", "#8cbbcd", "#dca585", "#b5c48c", "#d2bc72", "#afacc6"];
+      for (const [category, behavior, icon, color, names] of collections) {
+        const entries = names.split(",");
+        groups[category] = [groups[category], names].filter(Boolean).join(",");
+        entries.forEach((name, i) => {
+          if (kinds.some(k => k.name === name)) return;
+          kinds.push({name, icon, color: i % 3 === 0 ? color : catalogColors[i % catalogColors.length], behavior,
+            category, flammable: ["Plants", "Food"].includes(category) || ["Paper", "Cardboard", "Fabric", "Rope", "Hay bale", "Sawdust", "Petrol", "Diesel", "Kerosene", "Methane", "Propane", "Butane"].includes(name)});
+        });
+      }
+      const livingCategories = new Set(["Living", "Animals", "Insects", "Birds", "Aquatic", "Plants"]);
+      const descriptions = {
+        disaster: "Click once to unleash a disaster at this location. It continues while the world runs.",
+        crawler: "Walks on terrain, eats nearby food, and is vulnerable to extreme temperatures.",
+        fish: "Swims in water. Needs water nearby to survive.",
+        flier: "Flies through open space and eats nearby food.",
+        grow: "Grows when watered. Plants can burn.",
+        powder: "Falls, piles up, and sinks through water.",
+        liquid: "Falls and spreads sideways. Try mixing or changing the temperature.",
+        food: "Falls under gravity and feeds nearby creatures.",
+        float: "Rises and disperses through open space.",
+        explosive: "Falls, then explodes after a short fuse. Heat can trigger it early.",
+        energy: "Briefly heats nearby materials and can ignite explosives."
+      };
+      kinds.find(k => k.name === "Human").behavior = "human";
+      kinds.find(k => k.name === "Human").icon = "🧑";
+      kinds.find(k => k.name === "Human").color = "#f2c39d";
+      const humans = kinds.find(k => k.name === "Human");
+      humans.description = "Walks on the ground, seeks food, climbs small obstacles, and flees nearby fire or lava.";
+
+      kinds.push({name:"Meteor rock",icon:"☄️",color:"#ed9762",behavior:"meteor",category:"Minerals"},
+        {name:"Hail stone",icon:"🧊",color:"#c0e4fa",behavior:"powder",category:"Powders"});
       const ID = Object.fromEntries(kinds.map((kind, index) => [kind.name.toLowerCase(), index + 1]));
       const canvas = document.getElementById("world");
       const ctx = canvas.getContext("2d", { alpha: false });
-      let cells = new Uint8Array(SIZE);
+      let cells = new Uint16Array(SIZE);
       let ages = new Uint16Array(SIZE);
       let acted = new Uint8Array(SIZE);
       let temperatures = new Float32Array(SIZE).fill(20);
@@ -468,7 +522,7 @@
         cells[index] = value;
         ages[index] = 0;
         acted[index] = 1;
-        temperatures[index] = value === ID.lava ? 1200 : value === ID.fire ? 600 : value === ID.steam ? 110 : value === ID.ice || value === ID.snow ? -15 : 20;
+        temperatures[index] = value === ID.lava ? 1200 : value === ID.fire ? 600 : value === ID.steam ? 110 : value === ID.ice || value === ID.snow || value === ID["hail stone"] ? -15 : 20;
       }
 
       function makeTool(kindData, index) {
@@ -477,7 +531,7 @@
         button.type = "button";
         button.setAttribute("aria-pressed", index + 1 === selected ? "true" : "false");
         button.setAttribute("aria-label", kindData.name);
-        button.title = kindData.name;
+        button.title = `${kindData.name}: ${kindData.description || descriptions[kindData.behavior] || "Stays in place. Build structures and try heating it."}`;
         button.innerHTML = `<span class="swatch" aria-hidden="true">${kindData.icon}</span><span>${kindData.name}</span>`;
         button.addEventListener("click", () => selectTool(index + 1));
         return button;
@@ -489,13 +543,24 @@
         palette.append(button);
       });
       document.getElementById("element-count").textContent = `${kinds.length - 1} to discover`;
+      let activeCategory = "Solids";
+      function filterPalette() {
+        const query = document.getElementById("element-search").value.trim().toLowerCase();
+        let visible = 0;
+        [...palette.children].forEach((b, i) => {
+          b.hidden = (activeCategory !== "All" && b.dataset.category !== activeCategory) || !kinds[i].name.toLowerCase().includes(query);
+          if (!b.hidden) visible++;
+        });
+        document.getElementById("search-empty").hidden = visible > 0;
+      }
+      document.getElementById("element-search").addEventListener("input", filterPalette);
       for (const category of ["All", ...Object.keys(groups)]) {
         const button = document.createElement("button");
         button.className = "action"; button.textContent = category;
         button.setAttribute("aria-pressed", String(category === "Solids"));
         button.onclick = () => {
           [...document.getElementById("categories").children].forEach(b => b.setAttribute("aria-pressed", String(b === button)));
-          [...palette.children].forEach(b => b.hidden = category !== "All" && b.dataset.category !== category);
+          activeCategory = category; filterPalette();
         };
         document.getElementById("categories").append(button);
       }
@@ -514,6 +579,7 @@
 
       function selectTool(id) {
         selected = id;
+        document.getElementById("element-help").textContent = kind(id).description || descriptions[kind(id).behavior] || "Stays in place. Build structures and try heating it.";
         mode = id === ID.erase ? "erase" : "paint";
         updateMode();
         tools.forEach((button, index) => button.setAttribute("aria-pressed", index + 1 === id ? "true" : "false"));
@@ -521,6 +587,7 @@
       }
 
       function paint(x, y) {
+        if (mode === "paint" && kind(selected).behavior === "disaster") { triggerDisaster(kind(selected).name, x, y); return; }
         if (mode === "drag") {
           if (dragPoint) {
             const dx = x - dragPoint.x, dy = y - dragPoint.y;
@@ -579,7 +646,7 @@
         paintPointer(event);
       });
       canvas.addEventListener("pointermove", event => {
-        if (drawing) paintPointer(event);
+        if (drawing && !(mode === "paint" && kind(selected).behavior === "disaster")) paintPointer(event);
       });
       const stopDrawing = () => { drawing = false; lastPainted = -1; dragPoint = null; };
       canvas.addEventListener("pointerup", stopDrawing);
@@ -625,7 +692,7 @@
         const i=at(x,y), id=cells[i], t=temperatures[i];
         if (!id) return;
         let next;
-        if ((id===ID.ice || id===ID.snow) && t>0) next=ID.water;
+        if ((id===ID.ice || id===ID.snow || id===ID["hail stone"]) && t>0) next=ID.water;
         else if ([ID.water,ID.saltwater].includes(id)) { if(t<0) next=ID.ice; else if(t>100) next=ID.steam; }
         else if(id===ID.steam && t<90) next=ID.water;
         else if(id===ID.sand && t>900) next=ID.glass;
@@ -647,9 +714,10 @@
         }
       }
       function resizeWorld(w,h,preserve=true) {
+        disasters.length=0;
         const old=cells, oldAges=ages, oldTemps=temperatures, oldW=WIDTH, oldH=HEIGHT;
         WIDTH=w; HEIGHT=h; SIZE=w*h;
-        cells=new Uint8Array(SIZE); ages=new Uint16Array(SIZE); acted=new Uint8Array(SIZE); temperatures=new Float32Array(SIZE).fill(20);
+        cells=new Uint16Array(SIZE); ages=new Uint16Array(SIZE); acted=new Uint8Array(SIZE); temperatures=new Float32Array(SIZE).fill(20);
         if(preserve) for(let y=0;y<Math.min(h,oldH);y++) for(let x=0;x<Math.min(w,oldW);x++) {
           const i=at(x,y), j=y*oldW+x; cells[i]=old[j]; ages[i]=oldAges[j]; temperatures[i]=oldTemps[j];
         }
@@ -660,9 +728,98 @@
         const [w,h]=event.target.value.split(",").map(Number); resizeWorld(w,h); draw(); tell(`World resized to ${w} × ${h}.`);
       });
 
+      const disasters = [];
+      const disasterInfo = {
+        Meteor: "A blazing rock falls toward the ground and blasts a crater.",
+        "Meteor shower": "Multiple rocks rain down around your chosen location.",
+        Earthquake: "Fault lines split and nearby terrain shakes and crumbles.",
+        Tsunami: "A moving wall of water sweeps across the world.",
+        Tornado: "A moving funnel lifts and swirls nearby matter.",
+        Hurricane: "A broad rotating storm brings wind and heavy rain.",
+        Volcano: "A stone cone erupts lava and burning debris.",
+        Flood: "Heavy rain fills the area with water.",
+        Wildfire: "Flames spread through nearby flammable materials.",
+        "Lightning storm": "Repeated lightning strikes scorch the ground.",
+        Blizzard: "Freezing snow falls and chills the landscape.",
+        Hailstorm: "Falling ice pelts the ground.",
+        Avalanche: "A wave of snow tumbles down from your chosen location.",
+        Landslide: "Rock, dirt, and gravel tumble down the landscape.",
+        Drought: "Heat dries water and withers plants.",
+        Sinkhole: "The ground opens up beneath the chosen location."
+      };
+      function triggerDisaster(name,x,y) {
+        if (disasters.length >= 12) {tell("12 disasters are active. Let one finish first.");return;}
+        disasters.push({name,x,y,age:0,dir:x<WIDTH/2?1:-1});
+        tell(`${name} started${isPaused ? ". Resume or step to watch it unfold" : ""}.`);
+      }
+      function updateDisasters() {
+        for (let n=disasters.length-1;n>=0;n--) {
+          const d=disasters[n]; d.age++;
+          const {name,x,y,age,dir}=d;
+          const scatter=(value,count,span=16,baseY=y)=>{
+            for(let k=0;k<count;k++) put(Math.max(0,Math.min(WIDTH-1,x+Math.floor(Math.random()*span)-Math.floor(span/2))),Math.max(0,Math.min(HEIGHT-1,baseY+Math.floor(Math.random()*3))),value);
+          };
+          if(name==="Meteor" || name==="Meteor shower") {
+            if(age===1 || (name==="Meteor shower" && age%8===0 && age<50)) {
+              const mx=Math.max(0,Math.min(WIDTH-1,x+(name==="Meteor"?0:Math.floor(Math.random()*29)-14)));
+              // A falling meteor is a persistent particle with impact behavior.
+              put(mx, Math.min(y,3), ID["meteor rock"]);
+            }
+          } else if(name==="Earthquake") {
+            for(let k=0;k<24;k++) {
+              const px=Math.max(0,Math.min(WIDTH-1,x+Math.floor(Math.random()*35)-17)), py=Math.min(HEIGHT-1,y+Math.floor(Math.random()*Math.max(1,HEIGHT-y)));
+              if(Math.random()<.4) put(px,py,0);
+              else if(inside(px+dir,py)) swap(at(px,py),at(px+dir,py));
+            }
+          } else if(name==="Tsunami") {
+            const front=x+dir*age;
+            if(front>=0 && front<WIDTH) for(let py=Math.max(0,y-12);py<Math.min(HEIGHT,y+10);py++) put(front,py,ID.water);
+          } else if(name==="Tornado" || name==="Hurricane") {
+            const cx=x+dir*Math.floor(age/3), radius=name==="Hurricane"?13:7;
+            for(let k=0;k<65;k++) {
+              const px=cx+Math.floor(Math.random()*radius*2)-radius, py=y+Math.floor(Math.random()*25)-18;
+              const nx=px+(py<y-8?dir:Math.sign(cx-px)),ny=py+(Math.random()<.8?-1:1);
+              if(inside(px,py)&&inside(nx,ny)) swap(at(px,py),at(nx,ny));
+            }
+            if(name==="Hurricane") scatter(ID.water,12,30,Math.max(0,y-20));
+          } else if(name==="Volcano") {
+            if(age===1) for(let dy=0;dy<9;dy++) for(let dx=-dy;dx<=dy;dx++) put(x+dx,y+dy,ID.stone);
+            if(age%2===0) {scatter(ID.lava,5,5,Math.max(0,y-5));scatter(ID.fire,3,15,Math.max(0,y-9));}
+          } else if(name==="Flood") scatter(ID.water,40,40,Math.max(0,y-20));
+          else if(name==="Blizzard" || name==="Hailstorm") {
+            scatter(name==="Blizzard"?ID.snow:ID["hail stone"],25,45,Math.max(0,y-25));
+            for(let k=0;k<25;k++) {const px=Math.max(0,Math.min(WIDTH-1,x+Math.floor(Math.random()*41)-20)),py=Math.floor(Math.random()*HEIGHT);temperatures[at(px,py)]-=40;thermal(px,py);}
+          } else if(name==="Avalanche" || name==="Landslide") scatter(name==="Avalanche"?ID.snow:age%2?ID.gravel:ID.dirt,40,24,Math.max(0,y-8));
+          else if(name==="Lightning storm" && age%8===1) {
+            const px=Math.max(0,Math.min(WIDTH-1,x+Math.floor(Math.random()*31)-15));
+            for(let py=0;py<HEIGHT;py++) {
+              const id=cells[at(px,py)];
+              if(id && kind(id).behavior!=="gas" && kind(id).behavior!=="float") {explode(px,py,3);break;}
+              put(px,py,ID.electricity);
+            }
+          } else if(name==="Wildfire" || name==="Drought") {
+            for(let k=0;k<70;k++) {
+              const px=Math.max(0,Math.min(WIDTH-1,x+Math.floor(Math.random()*45)-22)),py=Math.max(0,Math.min(HEIGHT-1,y+Math.floor(Math.random()*31)-15));
+              const id=cells[at(px,py)];
+              if(name==="Wildfire" && id && kind(id).flammable) put(px,py,ID.fire);
+              if(name==="Drought") {
+                if([ID.water,ID.saltwater].includes(id)) put(px,py,0);
+                else if(id && ["Plants","Living"].includes(kind(id).category) && kind(id).flammable) put(px,py,ID.ash);
+                else {temperatures[at(px,py)]+=40;thermal(px,py);}
+              }
+            }
+          } else if(name==="Sinkhole") {
+            const r=Math.min(10,Math.ceil(age/3));
+            for(let dy=0;dy<HEIGHT-y;dy++) for(let dx=-r;dx<=r;dx++) if(Math.abs(dx)<r-dy*.08) put(x+dx,y+dy,0);
+          }
+          if(age>=60) disasters.splice(n,1);
+        }
+      }
+
       function stepWorld() {
         tick++;
         acted.fill(0);
+        updateDisasters();
         const leftToRight = tick % 2 === 0;
 
         for (let y = HEIGHT - 1; y >= 0; y--) {
@@ -687,8 +844,8 @@
             if(id===ID.gunpowder && (temperatures[index]>250 || adjacent(x,y,ID.fire))) { explode(x,y,5); continue; }
             if(id===ID.flour && adjacent(x,y,ID.water)) { put(x,y,ID.dough); continue; }
             if(id===ID.dirt && adjacent(x,y,ID.water) && Math.random()<.003) {put(x,y,ID.mud);continue;}
-            if(data.category==="Living" && (adjacent(x,y,ID["poison gas"]) || temperatures[index]>180 || temperatures[index]<-40)) {put(x,y,ID.ash);continue;}
-            if(["crawler","flier","rabbit","ant","bird","fish"].includes(data.behavior)) {
+            if(livingCategories.has(data.category) && (adjacent(x,y,ID["poison gas"]) || temperatures[index]>180 || temperatures[index]<-40)) {put(x,y,ID.ash);continue;}
+            if(["human","crawler","flier","rabbit","ant","bird","fish"].includes(data.behavior)) {
               for(const [dx,dy] of [[-1,0],[1,0],[0,1],[0,-1]]) if(inside(x+dx,y+dy)) {
                 const j=at(x+dx,y+dy);
                 if(cells[j] && kind(cells[j]).category==="Food" && Math.random()<.15) {
@@ -698,6 +855,29 @@
               }
             }
             switch (data.behavior) {
+              case "meteor":
+                if(y===HEIGHT-1 || (inside(x,y+1) && cells[at(x,y+1)] && ![ID.smoke,ID.fire,ID.steam].includes(cells[at(x,y+1)]))) {explode(x,y,9);put(x,y,ID.obsidian);}
+                else {if(inside(x,y+1)) {put(x,y+1,id);put(x,y,ID.fire);}}
+                break;
+              case "human": {
+                // Gravity first; choose a direction toward food and away from heat.
+                if (moveTo(x,y,x,y+1)) break;
+                if (Math.random() > .45) break;
+                let direction = randomSide();
+                for (let distance=1;distance<=8;distance++) {
+                  let found = false;
+                  for (const side of [-1,1]) {
+                    const nx=x+distance*side;
+                    if (!inside(nx,y)) continue;
+                    const target=cells[at(nx,y)];
+                    if (target===ID.fire || target===ID.lava) {direction=-side;found=true;break;}
+                    if (target && kind(target).category==="Food") {direction=side;found=true;break;}
+                  }
+                  if(found) break;
+                }
+                if(!moveTo(x,y,x+direction,y)) moveTo(x,y,x+direction,y-1);
+                break;
+              }
               case "explosive":
                 if(ages[index]>45 || adjacent(x,y,ID.fire) || temperatures[index]>150) explode(x,y,id===ID.dynamite?10:7);
                 else moveTo(x,y,x,y+1);
@@ -969,16 +1149,32 @@
             const variation = ((x * 13 + y * 7 + tick) % 5) * 2;
             ctx.fillStyle = data.color;
             ctx.fillRect(x * 10, y * 10, 10, 10);
+            if (id === ID.human) {
+              ctx.fillStyle = "#5da1da"; ctx.fillRect(x*10+2,y*10+5,6,5);
+              ctx.fillStyle = "#f2c39d"; ctx.fillRect(x*10+3,y*10,4,4);
+            }
             if ([ID.water, ID.lava, ID.fire, ID.grass, ID.flower].includes(id)) {
               ctx.fillStyle = id === ID.fire ? "#ffd27a" : "#ffffff20";
               ctx.fillRect(x * 10 + 2, y * 10 + 2, 3 + variation % 3, 2);
             }
-            if ([ID.fish, ID.bird, ID.rabbit, ID.ant, ID.flower, ID.mushroom].includes(id)) {
+            if (livingCategories.has(data.category)) {
               ctx.fillStyle = "#18232acc";
               ctx.fillRect(x * 10 + 6, y * 10 + 3, 2, 2);
             }
           }
         }
+        // Show the wind funnel even when it is moving through empty sky.
+        for (const d of disasters) {
+          if (!["Tornado", "Hurricane"].includes(d.name)) continue;
+          const cx=d.x+d.dir*Math.floor(d.age/3), radius=d.name==="Hurricane"?13:7;
+          ctx.fillStyle=d.name==="Hurricane"?"#8ac7df66":"#d6e1d377";
+          for(let row=0;row<19;row++) {
+            const width=Math.max(1,Math.round(radius*(19-row)/19));
+            const sway=Math.round(Math.sin(d.age*.7+row)*2);
+            ctx.fillRect((cx-width+sway)*10,(d.y-18+row)*10,width*20,3);
+          }
+        }
+        document.getElementById("disaster-state").textContent = disasters.length ? `${disasters.length} active: ${[...new Set(disasters.map(d=>d.name))].join(", ")}` : "Draw with mouse or touch";
         if (performance.now() - lastStats > 250) {
           const total = counts.reduce((sum, count) => sum + count, 0);
           document.getElementById("world-count").textContent = `${total.toLocaleString()} little ${total === 1 ? "thing" : "things"}`;
@@ -1004,6 +1200,7 @@
       }
 
       function createWorld() {
+        disasters.length=0;
         cells.fill(0);
         ages.fill(0);
         temperatures.fill(20);
@@ -1076,6 +1273,7 @@
         tell("A fresh little world is ready.");
       });
       document.getElementById("clear").addEventListener("click", () => {
+        disasters.length=0;
         cells.fill(0);
         ages.fill(0);
         temperatures.fill(20);
@@ -1099,7 +1297,7 @@
       document.getElementById("save").addEventListener("click", () => {
         try {
           localStorage.setItem(SAVE_KEY, JSON.stringify({ width: WIDTH, height: HEIGHT, temperatures: Array.from(temperatures), cells: Array.from(cells), ages: Array.from(ages) }));
-          tell("World saved on this device.");
+          tell("World saved on this device. Active weather events are not saved.");
         } catch (error) {
           tell("Couldn't save this world. Check your browser storage settings.");
           console.error("Could not save sandbox world:", error);
@@ -1136,6 +1334,7 @@
       });
       brush.addEventListener("input", () => { brushSize.value = brush.value; });
 
+      for(const k of kinds) if(disasterInfo[k.name]) k.description=disasterInfo[k.name]+" Click once to start; runs for 60 simulation steps.";
       createWorld();
       selectTool(selected);
       requestAnimationFrame(frame);
